@@ -1,0 +1,22 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install --no-cache-dir spacy fastapi uvicorn
+
+# Download the spaCy model
+RUN python -m spacy download en_core_web_sm
+
+# Copy the server code
+COPY ner_server.py .
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"
+
+# Run the server
+CMD ["python", "ner_server.py"]

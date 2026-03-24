@@ -1,0 +1,23 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+RUN pip install --no-cache-dir scikit-learn fastapi uvicorn joblib numpy
+
+# Copy the server code
+COPY classifier_server.py .
+
+# Copy your trained model (optional - comment out if you don't have a model.pkl yet)
+# COPY model.pkl .
+# COPY feature_names.pkl .
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"
+
+# Run the server
+CMD ["python", "classifier_server.py"]
