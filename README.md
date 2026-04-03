@@ -1,195 +1,78 @@
-# example-model-images
+# Example Model Images
 
-Examples of model images that you can deploy to Chalk Scaling Groups.
+Example model images using [chalk-remote-call-python](https://pypi.org/project/chalk-remote-call-python/) for Chalk Scaling Groups.
 
-## Overview
-
-This directory contains reference implementations of model servers that can be deployed as Chalk Scaling Groups. Each example demonstrates a different protocol (HTTP/gRPC) and model type.
-
----
+Each model implements a `handler(event, context)` function in `model.py` following the chalk-remote-call convention. The handler receives Arrow Arrays and returns Arrow Arrays.
 
 ## Models
 
-### 1. NER Model (HTTP)
-**Directory**: `ner-model-http/`
+### 1. NER Model
+**Directory**: `ner-model/`
 
-Named Entity Recognition (NER) model exposed via FastAPI HTTP endpoints. Uses the spaCy `en_core_web_sm` model to extract named entities from text.
-
-**Protocol**: HTTP (FastAPI)
-**Port**: `8000`
-
-#### Endpoints
-
-- **`POST /extract`** - Extract named entities from text
-  - **Input**:
-    - `text` (string): The text to extract entities from
-  - **Output**:
-    ```json
-    {
-      "text": "string",
-      "entities": [
-        {
-          "text": "entity text",
-          "label": "PERSON|ORG|GPE|etc",
-          "start": 0,
-          "end": 5
-        }
-      ]
-    }
-    ```
-
-- **`GET /health`** - Health check endpoint
-  - **Output**: `{"status": "ok"}`
-
-#### Dependencies
-
-- FastAPI
-- Uvicorn
-- spaCy (`en_core_web_sm` model)
-
-#### Running Locally
+Named Entity Recognition using spaCy's `en_core_web_sm` model.
 
 ```bash
-pip install fastapi uvicorn spacy
-python -m spacy download en_core_web_sm
-python ner_server.py
-# Server runs on http://localhost:8000
+cd ner-model
+docker build --platform linux/amd64 -t ner-model .
 ```
 
----
-
-### 2. NER Model (gRPC)
-**Directory**: `ner-model-grpc/`
-
-Plain gRPC server implementation of NER using spaCy. This example demonstrates how to deploy a customer's existing gRPC model server that has no Chalk-specific dependencies.
-
-**Protocol**: gRPC
-**Port**: `9000`
-
-#### Endpoints
-
-- **`/ner.v1.NerService/Extract`** - Extract named entities from text
-  - **Input**: JSON-encoded bytes with schema:
-    ```json
-    {
-      "text": "string"
-    }
-    ```
-  - **Output**: JSON-encoded bytes with schema:
-    ```json
-    {
-      "text": "string",
-      "entities": [
-        {
-          "text": "entity text",
-          "label": "PERSON|ORG|GPE|etc",
-          "start": 0,
-          "end": 5
-        }
-      ]
-    }
-    ```
-
-#### Dependencies
-
-- gRPC (grpcio)
-- spaCy (`en_core_web_sm` model)
-
-#### Running Locally
-
-```bash
-pip install grpcio spacy
-python -m spacy download en_core_web_sm
-python ner_server_plain_grpc.py
-# Server runs on localhost:9000
-```
-
-#### Notes
-
-This server is designed to work with the gRPC adapter sidecar, which converts Arrow format (from RemoteCallService) to gRPC calls.
-
----
-
-### 3. Random Forest Classifier
+### 2. Random Forest Classifier
 **Directory**: `rf-classifier/`
 
-Classifier/regressor model exposed via FastAPI. Designed to work with scikit-learn models (Random Forest, etc.) but can be adapted for other model types.
-
-**Protocol**: HTTP (FastAPI)
-**Port**: `8000`
-
-#### Endpoints
-
-- **`POST /predict`** - Make a prediction using the model
-  - **Input**:
-    ```json
-    {
-      "features": [float, float, ...]
-    }
-    ```
-  - **Output**:
-    ```json
-    {
-      "prediction": 0.5,
-      "probabilities": [0.3, 0.7],
-      "class_labels": ["class_0", "class_1"]
-    }
-    ```
-  - **Note**: For classifiers, includes `probabilities` and `class_labels` if available
-
-- **`POST /predict_proba`** - Get class probabilities (classifiers only)
-  - **Input**:
-    ```json
-    {
-      "features": [float, float, ...]
-    }
-    ```
-  - **Output**:
-    ```json
-    {
-      "probabilities": [0.3, 0.7],
-      "class_labels": ["0", "1"]
-    }
-    ```
-
-- **`GET /health`** - Health check endpoint
-  - **Output**: `{"status": "ok"}`
-
-#### Dependencies
-
-- FastAPI
-- Uvicorn
-- scikit-learn
-- joblib
-- NumPy
-
-#### Running Locally
+Sklearn classifier/regressor. Falls back to a dummy model if no `model.pkl` is provided.
 
 ```bash
-pip install fastapi uvicorn scikit-learn joblib numpy
-python classifier_server.py
-# Server runs on http://localhost:8000
+cd rf-classifier
+docker build --platform linux/amd64 -t rf-classifier .
 ```
 
-#### Model Loading
+## Handler Convention
 
-The server expects a pre-trained model file at `/app/model.pkl`. Optionally, feature names can be loaded from `/app/feature_names.pkl`. If no model is found, a dummy random forest model is created for testing purposes.
+Each `model.py` must define:
 
----
+```python
+import pyarrow as pa
+
+def on_startup():
+    """Optional — called once before server starts."""
+    # Load model weights, initialize resources, etc.
+
+def handler(event: dict[str, pa.Array], context: dict) -> pa.Array:
+    """Process a batch of inputs and return results."""
+    inputs = event["input_column"].to_pylist()
+    results = [process(x) for x in inputs]
+    return pa.array(results, type=pa.utf8())
+```
+
+## Registration
+
+```python
+from chalk.client import ChalkClient
+from chalk.ml import ModelServingSpec
+import pyarrow as pa
+
+client = ChalkClient()
+client.register_model_version(
+    name="my-model",
+    input_schema={"text": pa.large_string()},
+    output_schema={"result": pa.large_string()},
+    model_image="ghcr.io/my-org/my-model:latest",
+    serving=ModelServingSpec(
+        handler="model.handler",
+        min_replicas=1,
+        max_replicas=2,
+        cpu="2",
+        memory="4Gi",
+    ),
+)
+```
 
 ## Deployment
 
-Each model includes a Dockerfile for containerization:
-
 ```bash
-# NER (HTTP)
-docker build --platform linux/amd64 -f Dockerfile.ner -t ner-model:latest .
-
-# NER (gRPC)
-docker build --platform linux/amd64 -f Dockerfile.ner-plain-grpc -t ner-grpc:latest .
-
-# Classifier
-docker build --platform linux/amd64 -f Dockerfile.classifier -t classifier-model:latest .
+# Build any example
+cd ner-model-http
+docker build --platform linux/amd64 -t my-model:latest .
+docker tag my-model:latest ghcr.io/my-org/my-model:latest
+docker push ghcr.io/my-org/my-model:latest
 ```
-
-All images include health checks configured for Kubernetes deployments.
