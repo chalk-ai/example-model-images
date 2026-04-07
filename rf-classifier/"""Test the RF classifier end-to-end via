@@ -1,0 +1,32 @@
+"""Test the RF classifier end-to-end via RemoteCallService.
+
+Update the URL below to match your deployed scaling group.
+"""
+
+import chalkdf
+import pyarrow as pa
+from libchalk.chalktable import Expr
+from libchalk.runtime.remote_call import GrpcChannelCredentials, RemoteCallClientSupplier
+
+# Update this URL after deploying the classifier scaling group
+CLASSIFIER_URL = "rene-chalk-ai-model-rf-classifier-v1.remote.internal.aws.chalk.dev:443"
+
+supplier = RemoteCallClientSupplier.from_grpc_host(CLASSIFIER_URL, GrpcChannelCredentials.SSL())
+
+data = pa.RecordBatch.from_pydict(
+    {
+        "features": [
+            "[0.5, 0.3, 0.8, 0.1]",
+            "[0.1, 0.9, 0.2, 0.7]",
+            "[0.6, 0.4, 0.5, 0.3]",
+            None,
+        ]
+    }
+)
+
+table = chalkdf.DataFrame(data)
+result = table.project(
+    {"prediction": Expr.remote_call(supplier, "handler", pa.utf8(), Expr.column("features", pa.utf8()))}
+)
+print(result)
+print(result.to_arrow())
