@@ -6,41 +6,11 @@ Each model implements a `handler(event, context)` function in `model.py` followi
 
 ## Models
 
-### 1. NER Model
-**Directory**: `ner-model/`
-
-Named Entity Recognition using spaCy's `en_core_web_sm` model.
-
-```bash
-cd ner-model
-docker build --platform linux/amd64 -t ner-model .
-```
-
-### 2. Random Forest Classifier
-**Directory**: `rf-classifier/`
-
-Sklearn classifier/regressor. Falls back to a dummy model if no `model.pkl` is provided.
-
-```bash
-cd rf-classifier
-docker build --platform linux/amd64 -t rf-classifier .
-```
-
-### 3. RoBERTa Tweet Toxicity Classifier
-**Directory**: `roberta-classifier/`
-
-Multilabel tweet toxicity classifier using `cardiffnlp/twitter-roberta-base`. Scores tweets across 6 categories: toxic, severe_toxic, obscene, threat, insult, identity_hate.
-
-```bash
-cd roberta-classifier
-docker build --platform linux/amd64 -t roberta-classifier .
-```
-
-**Scripts:**
-- `train.py` — train the model and save weights
-- `register.py` — register weights in Chalk model registry
-- `deploy.py` — register a serving image and deploy to a scaling group
-- `test.py` — test the handler locally
+| Model | Directory | Description |
+|---|---|---|
+| [NER Model](ner-model/) | `ner-model/` | Named Entity Recognition using spaCy |
+| [Random Forest Classifier](rf-classifier/) | `rf-classifier/` | Sklearn classifier/regressor |
+| [RoBERTa Toxicity Classifier](roberta-classifier/) | `roberta-classifier/` | Tweet toxicity classifier using `cardiffnlp/twitter-roberta-base` |
 
 ## Handler Convention
 
@@ -60,7 +30,7 @@ def handler(event: dict[str, pa.Array], context: dict) -> pa.Array:
     return pa.array(results, type=pa.utf8())
 ```
 
-## Deployment
+## Image Build
 
 ```bash
 # Build any example
@@ -70,24 +40,32 @@ docker tag my-model:latest ghcr.io/my-org/my-model:latest
 docker push ghcr.io/my-org/my-model:latest
 ```
 
-## Registration
+## Deployment
 
 ```python
 from chalk.client import ChalkClient
-from chalk.ml import ModelServingSpec
+from chalk.scalinggroup.spec import AutoScalingSpec, ScalingGroupResourceRequest
 import pyarrow as pa
 
 client = ChalkClient()
-client.register_model_version(
+response = client.register_model_version(
     name="my-model",
     input_schema={"text": pa.large_string()},
     output_schema={"result": pa.large_string()},
     model_image="ghcr.io/my-org/my-model:latest",
-    serving=ModelServingSpec(
+)
+
+client.deploy_model_version_to_scaling_group(
+    name="my-scaling-group",
+    model_name=response.model_name,
+    model_version=response.model_version,
+    resources=ScalingGroupResourceRequest(
+        cpu="2",
+        memory="4Gi"
+    ),
+    scaling=AutoScalingSpec(
         min_replicas=1,
         max_replicas=2,
-        cpu="2",
-        memory="4Gi",
     ),
 )
 ```
