@@ -26,6 +26,22 @@ cd rf-classifier
 docker build --platform linux/amd64 -t rf-classifier .
 ```
 
+### 3. RoBERTa Tweet Toxicity Classifier
+**Directory**: `roberta-classifier/`
+
+Multilabel tweet toxicity classifier using `cardiffnlp/twitter-roberta-base`. Scores tweets across 6 categories: toxic, severe_toxic, obscene, threat, insult, identity_hate.
+
+```bash
+cd roberta-classifier
+docker build --platform linux/amd64 -t roberta-classifier .
+```
+
+**Scripts:**
+- `train.py` — train the model and save weights
+- `register.py` — register weights in Chalk model registry
+- `deploy.py` — register a serving image and deploy to a scaling group
+- `test.py` — test the handler locally
+
 ## Handler Convention
 
 Each `model.py` must define:
@@ -44,6 +60,16 @@ def handler(event: dict[str, pa.Array], context: dict) -> pa.Array:
     return pa.array(results, type=pa.utf8())
 ```
 
+## Deployment
+
+```bash
+# Build any example
+cd ner-model-http
+docker build --platform linux/amd64 -t my-model:latest .
+docker tag my-model:latest ghcr.io/my-org/my-model:latest
+docker push ghcr.io/my-org/my-model:latest
+```
+
 ## Registration
 
 ```python
@@ -58,21 +84,10 @@ client.register_model_version(
     output_schema={"result": pa.large_string()},
     model_image="ghcr.io/my-org/my-model:latest",
     serving=ModelServingSpec(
-        handler="model.handler",
         min_replicas=1,
         max_replicas=2,
         cpu="2",
         memory="4Gi",
     ),
 )
-```
-
-## Deployment
-
-```bash
-# Build any example
-cd ner-model-http
-docker build --platform linux/amd64 -t my-model:latest .
-docker tag my-model:latest ghcr.io/my-org/my-model:latest
-docker push ghcr.io/my-org/my-model:latest
 ```

@@ -1,0 +1,11 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --platform=linux/amd64
+      - --cache-from=us-central1-docker.pkg.dev/chalk-infra/public-images/model-examples/roberta-classifier:latest
+      - -t
+      - us-central1-docker.pkg.dev/chalk-infra/public-images/model-examples/roberta-classifier:latest
+      - .
+images:
+  - us-central1-docker.pkg.dev/chalk-infra/public-images/model-examples/roberta-classifier
