@@ -26,6 +26,7 @@ def on_startup():
     except FileNotFoundError:
         print("WARNING: model.pkl not found. Using a dummy model for testing.")
         from sklearn.ensemble import RandomForestClassifier
+
         model = RandomForestClassifier()
         model.fit(np.random.rand(10, 4), np.random.randint(0, 2, 10))
 
@@ -88,7 +89,7 @@ def handler(event: dict[str, pa.Array], context: dict) -> pa.Array:
             pa.array(class_labels_list, type=pa.list_(pa.string())),
             pa.array(errors, type=pa.string()),
         ],
-        names=["prediction", "probabilities", "class_labels", "error"]
+        names=["prediction", "probabilities", "class_labels", "error"],
     )
 
     return struct_array

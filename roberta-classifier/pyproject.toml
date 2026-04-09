@@ -1,0 +1,15 @@
+[project]
+name = "roberta-classifier"
+version = "0.1.0"
+description = "Tweet toxicity classifier using cardiffnlp/twitter-roberta-base"
+requires-python = ">=3.11"
+dependencies = [
+    "torch>=2.0",
+    "transformers>=4.30",
+    "numpy>=1.24",
+    "pyarrow>=14.0",
+    "chalkpy",
+]
+
+[dependency-groups]
+train = ["scikit-learn>=1.3"]

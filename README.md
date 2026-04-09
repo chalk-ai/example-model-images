@@ -6,6 +6,7 @@ Each model implements a `handler(event, context)` function in `model.py` followi
 
 ## Models
 
+<<<<<<< HEAD
 ### 1. NER Model
 **Directory**: `ner-model/`
 
@@ -25,6 +26,13 @@ Sklearn classifier/regressor. Falls back to a dummy model if no `model.pkl` is p
 cd rf-classifier
 docker build --platform linux/amd64 -t rf-classifier .
 ```
+=======
+| Model | Directory | Description |
+|---|---|---|
+| [NER Model](ner-model/) | `ner-model/` | Named Entity Recognition using spaCy |
+| [Random Forest Classifier](rf-classifier/) | `rf-classifier/` | Sklearn classifier/regressor |
+| [RoBERTa Toxicity Classifier](roberta-classifier/) | `roberta-classifier/` | Tweet toxicity classifier using `cardiffnlp/twitter-roberta-base` |
+>>>>>>> main
 
 ## Handler Convention
 
@@ -44,6 +52,7 @@ def handler(event: dict[str, pa.Array], context: dict) -> pa.Array:
     return pa.array(results, type=pa.utf8())
 ```
 
+<<<<<<< HEAD
 ## Registration
 
 ```python
@@ -68,6 +77,9 @@ client.register_model_version(
 ```
 
 ## Deployment
+=======
+## Image Build
+>>>>>>> main
 
 ```bash
 # Build any example
@@ -76,3 +88,36 @@ docker build --platform linux/amd64 -t my-model:latest .
 docker tag my-model:latest ghcr.io/my-org/my-model:latest
 docker push ghcr.io/my-org/my-model:latest
 ```
+<<<<<<< HEAD
+=======
+
+## Deployment
+
+```python
+from chalk.client import ChalkClient
+from chalk.scalinggroup.spec import AutoScalingSpec, ScalingGroupResourceRequest
+import pyarrow as pa
+
+client = ChalkClient()
+response = client.register_model_version(
+    name="my-model",
+    input_schema={"text": pa.large_string()},
+    output_schema={"result": pa.large_string()},
+    model_image="ghcr.io/my-org/my-model:latest",
+)
+
+client.deploy_model_version_to_scaling_group(
+    name="my-scaling-group",
+    model_name=response.model_name,
+    model_version=response.model_version,
+    resources=ScalingGroupResourceRequest(
+        cpu="2",
+        memory="4Gi"
+    ),
+    scaling=AutoScalingSpec(
+        min_replicas=1,
+        max_replicas=2,
+    ),
+)
+```
+>>>>>>> main
