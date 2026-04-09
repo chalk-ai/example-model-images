@@ -4,8 +4,6 @@ Example customer model that runs a pre-trained sklearn classifier.
 Falls back to a dummy model if no model.pkl is found.
 """
 
-import json
-
 import joblib
 import numpy as np
 import pyarrow as pa
@@ -38,41 +36,59 @@ def handler(event: dict[str, pa.Array], context: dict) -> pa.Array:
     Parameters
     ----------
     event
-        {"features": pa.Array of JSON strings, each a list of floats}
+        {"features": pa.Array of lists of floats}
 
     Returns
     -------
-    pa.Array of JSON strings with prediction results
+    pa.StructArray with prediction, probabilities, class_labels, and error fields
     """
     features_list = event["features"].to_pylist()
-    results = []
+    predictions = []
+    probabilities_list = []
+    class_labels_list = []
+    errors = []
 
-    for features_json in features_list:
-        if features_json is None:
-            results.append(None)
+    for features in features_list:
+        if features is None:
+            predictions.append(None)
+            probabilities_list.append(None)
+            class_labels_list.append(None)
+            errors.append(None)
             continue
 
         try:
-            # Parse features — could be a JSON string or already a list
-            if isinstance(features_json, str):
-                features = json.loads(features_json)
-            else:
-                features = features_json
-
             X = np.array(features).reshape(1, -1)
             prediction = float(model.predict(X)[0])
-
-            result = {"prediction": prediction}
+            predictions.append(prediction)
 
             # Include probabilities for classifiers
             if hasattr(model, "predict_proba"):
                 probas = model.predict_proba(X)[0]
-                result["probabilities"] = [float(p) for p in probas]
+                probabilities_list.append([float(p) for p in probas])
                 if hasattr(model, "classes_"):
-                    result["class_labels"] = [str(c) for c in model.classes_]
+                    class_labels_list.append([str(c) for c in model.classes_])
+                else:
+                    class_labels_list.append(None)
+            else:
+                probabilities_list.append(None)
+                class_labels_list.append(None)
 
-            results.append(json.dumps(result))
+            errors.append(None)
         except Exception as e:
-            results.append(json.dumps({"error": str(e)}))
+            predictions.append(None)
+            probabilities_list.append(None)
+            class_labels_list.append(None)
+            errors.append(str(e))
 
-    return pa.array(results, type=pa.utf8())
+    # Build struct array
+    struct_array = pa.StructArray.from_arrays(
+        [
+            pa.array(predictions, type=pa.float64()),
+            pa.array(probabilities_list, type=pa.list_(pa.float64())),
+            pa.array(class_labels_list, type=pa.list_(pa.string())),
+            pa.array(errors, type=pa.string()),
+        ],
+        names=["prediction", "probabilities", "class_labels", "error"]
+    )
+
+    return struct_array
