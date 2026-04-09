@@ -6,33 +6,11 @@ Each model implements a `handler(event, context)` function in `model.py` followi
 
 ## Models
 
-<<<<<<< HEAD
-### 1. NER Model
-**Directory**: `ner-model/`
-
-Named Entity Recognition using spaCy's `en_core_web_sm` model.
-
-```bash
-cd ner-model
-docker build --platform linux/amd64 -t ner-model .
-```
-
-### 2. Random Forest Classifier
-**Directory**: `rf-classifier/`
-
-Sklearn classifier/regressor. Falls back to a dummy model if no `model.pkl` is provided.
-
-```bash
-cd rf-classifier
-docker build --platform linux/amd64 -t rf-classifier .
-```
-=======
 | Model | Directory | Description |
 |---|---|---|
 | [NER Model](ner-model/) | `ner-model/` | Named Entity Recognition using spaCy |
 | [Random Forest Classifier](rf-classifier/) | `rf-classifier/` | Sklearn classifier/regressor |
 | [RoBERTa Toxicity Classifier](roberta-classifier/) | `roberta-classifier/` | Tweet toxicity classifier using `cardiffnlp/twitter-roberta-base` |
->>>>>>> main
 
 ## Handler Convention
 
@@ -52,44 +30,15 @@ def handler(event: dict[str, pa.Array], context: dict) -> pa.Array:
     return pa.array(results, type=pa.utf8())
 ```
 
-<<<<<<< HEAD
-## Registration
-
-```python
-from chalk.client import ChalkClient
-from chalk.ml import ModelServingSpec
-import pyarrow as pa
-
-client = ChalkClient()
-client.register_model_version(
-    name="my-model",
-    input_schema={"text": pa.large_string()},
-    output_schema={"result": pa.large_string()},
-    model_image="ghcr.io/my-org/my-model:latest",
-    serving=ModelServingSpec(
-        handler="model.handler",
-        min_replicas=1,
-        max_replicas=2,
-        cpu="2",
-        memory="4Gi",
-    ),
-)
-```
-
-## Deployment
-=======
 ## Image Build
->>>>>>> main
 
 ```bash
 # Build any example
-cd ner-model-http
+cd ner-model
 docker build --platform linux/amd64 -t my-model:latest .
 docker tag my-model:latest ghcr.io/my-org/my-model:latest
 docker push ghcr.io/my-org/my-model:latest
 ```
-<<<<<<< HEAD
-=======
 
 ## Deployment
 
@@ -120,4 +69,3 @@ client.deploy_model_version_to_scaling_group(
     ),
 )
 ```
->>>>>>> main
