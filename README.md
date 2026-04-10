@@ -34,7 +34,7 @@ def handler(event: dict[str, pa.Array], context: dict) -> pa.Array:
 
 ```bash
 # Build any example
-cd ner-model-http
+cd ner-model
 docker build --platform linux/amd64 -t my-model:latest .
 docker tag my-model:latest ghcr.io/my-org/my-model:latest
 docker push ghcr.io/my-org/my-model:latest
