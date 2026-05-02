@@ -6,7 +6,6 @@ Follows the chalk-remote-call handler interface:
   handler()     — score a batch of tweets via PyArrow
 """
 
-import json
 import logging
 import os
 import shutil
@@ -74,7 +73,11 @@ def handler(event: dict[str, pa.Array], context: dict) -> pa.Array:
     """Score a batch of tweets for toxicity.
 
     Input:  event["tweet"] — pa.Array of utf8 tweet strings
-    Output: pa.Array of utf8 JSON strings with per-label scores
+    Output: pa.StructArray with one column per label (float64) plus
+            `overall_toxic` (bool). The struct fields must match the
+            registered output_schema; previously this returned a json-encoded
+            VARCHAR which mismatched the catalog-declared struct type and
+            tripped a Velox INVALID_STATE assertion downstream.
     """
     tweets = event["tweet"].to_pylist()
 
@@ -91,12 +94,16 @@ def handler(event: dict[str, pa.Array], context: dict) -> pa.Array:
 
     probs = _model.predict_proba(input_ids, attention_mask)  # (B, num_labels)
 
-    results = []
+    label_names = list(_cfg.label_names)
+    label_columns: dict[str, list[float]] = {name: [] for name in label_names}
+    overall: list[bool] = []
     for b in range(probs.size(0)):
-        scores = {}
-        for i, name in enumerate(_cfg.label_names):
-            scores[name] = round(probs[b, i].item(), 4)
-        scores["overall_toxic"] = any(scores[n] > 0.5 for n in _cfg.label_names)
-        results.append(json.dumps(scores))
+        per_label = {name: round(probs[b, i].item(), 4) for i, name in enumerate(label_names)}
+        for name in label_names:
+            label_columns[name].append(per_label[name])
+        overall.append(any(per_label[n] > 0.5 for n in label_names))
 
-    return pa.array(results, type=pa.utf8())
+    field_arrays = [pa.array(label_columns[name], type=pa.float64()) for name in label_names]
+    field_arrays.append(pa.array(overall, type=pa.bool_()))
+    field_names = label_names + ["overall_toxic"]
+    return pa.StructArray.from_arrays(field_arrays, names=field_names)
