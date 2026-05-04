@@ -15,7 +15,7 @@ import pyarrow as pa
 
 
 MODEL_NAME = "TweetToxicityClassifier"
-MODEL_PATH = "best_toxicity_model.pt"
+MODEL_PATH = "models/best_toxicity_model.pt"
 
 
 def register(alias: str | None = None):
